@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+  - port: 80          # cổng Service expose
+    targetPort: 8080    # cổng Pod/nginx lắng nghe
+  type: ClusterIP     # loại service nội bộ trong cluster

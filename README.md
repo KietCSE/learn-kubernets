@@ -223,6 +223,33 @@ Dưới đây là quy trình cơ bản để triển khai và quản lý một �
 
 ---
 
+
+Selector for deployment and for service is diff 
+Service for rute traffic 
+Deployment for management 
+
+port: 80 là cổng mà Service lắng nghe trong cluster.
+targetPort: 8080 là cổng mà các Pod đang chạy thật sẽ lắng nghe bên trong (trong container).
+Vì vậy, Service nhận request ở cổng 80, rồi chuyển tiếp (proxy) nó tới các Pod có label phù hợp, vào cổng 8080 của chúng.
+
+containerPort = targetPort 
+
+Default service is kubernetes:
+- Là dịch vụ mặc định của API server trong cluster. Nó cho phép các pod giao tiếp với API server để điều khiển cluster.
+
+kubectl describe service nginx-service
+kubectl get pod -o wide
+-> check endpoint of service and IP of pod 
+
+Check status 
+kubectl get deployment nginx-deployment -o yaml
+
+Mỗi pod sẽ tạo 2 container: 1 cái main và 1 cái pause để giữ namespace 
+Một pod có thể có nhiều hơn container nếu dùng theo 
+- Sidecar container Ví dụ: chạy một container ứng dụng + một container Fluentd để đẩy log lên server.
+- Init container Các container khởi tạo chạy trước khi container chính bắt đầu (ví dụ: tải dữ liệu, thiết lập config...).
+- Ambassador / Adapter container Đóng vai trò như cổng giao tiếp hoặc chuyển đổi giao thức.
+
 ## 4. Lưu ý quan trọng
 
 - **Namespace**: Các lệnh `kubectl` mặc định hoạt động trong namespace `default`. Để làm việc với namespace khác, sử dụng tùy chọn `-n <namespace>` (ví dụ: `kubectl get pod -n kube-system`).
