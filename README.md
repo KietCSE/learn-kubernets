@@ -250,6 +250,43 @@ Một pod có thể có nhiều hơn container nếu dùng theo
 - Init container Các container khởi tạo chạy trước khi container chính bắt đầu (ví dụ: tải dữ liệu, thiết lập config...).
 - Ambassador / Adapter container Đóng vai trò như cổng giao tiếp hoặc chuyển đổi giao thức.
 
+
+minikube service NAME 
+
+## namespace 
+
+3 system namespace 
+
+advoice conflict with other teams 
+advoice conflict name of resosurce 
+group the resource for management 
+seperate many stage environment 
+access and limit the resource for each team  
+share resource between diffirent environment 
+-> some resource lives globaly withoout namespace 
+-> without providing namespace -> use default namespace 
+
+Một Namespace có thể có các Pod chạy trên nhiều Node khác nhau.
+
+
+## ingress 
+Ingress là cổng chính cho các HTTP request từ ngoài vào, như một web server reverse proxy.
+Ingress resource
+Ingress controller 
+Ingress = Cách chuẩn trong Kubernetes để thay thế việc tự cài NGINX thủ công.
+default backend -> create another pod with the same name to handle error rule request 
+using URL to make diffirect app accessable -> can use many host instead 
+
+kubectl get ingress -n kubernetes-dashboard
+kubectl describe ingress <name> -n <namespace>
+
+## Helm 
+clone common yaml configuration file 
+define template file with value yaml file 
+release management 
+
+
+
 ## 4. Lưu ý quan trọng
 
 - **Namespace**: Các lệnh `kubectl` mặc định hoạt động trong namespace `default`. Để làm việc với namespace khác, sử dụng tùy chọn `-n <namespace>` (ví dụ: `kubectl get pod -n kube-system`).
