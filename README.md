@@ -1,0 +1,231 @@
+# Kubernetes: Basic Operations and Concepts
+
+## 1. Giới thiệu
+
+Kubernetes là một nền tảng mã nguồn mở để quản lý các ứng dụng được container hóa. Tài liệu này cung cấp hướng dẫn chi tiết về các khái niệm cơ bản như **Node**, **Pod**, **Service**, **Deployment**, và **ReplicaSet**, cùng với các lệnh `kubectl` phổ biến để quản lý chúng. Các lệnh được trình bày kèm ví dụ cụ thể và giải thích rõ ràng.
+
+---
+
+## 2. Các khái niệm cơ bản trong Kubernetes
+
+### 2.1. Node
+
+**Node** là một máy tính (máy vật lý hoặc máy ảo) trong cụm Kubernetes, chịu trách nhiệm chạy các ứng dụng được đóng gói trong container. Mỗi Node chứa các thành phần sau:
+- **Kubelet**: Tác nhân chạy trên mỗi Node, đảm bảo các container trong Pod được chạy đúng cách.
+- **Kube-proxy**: Quản lý các quy tắc mạng trên Node để kết nối các Pod với nhau và với bên ngoài.
+- **Container Runtime**: Phần mềm chạy container (ví dụ: Docker, containerd).
+
+**Lệnh liên quan**:
+```bash
+kubectl get nodes
+```
+- **Mô tả**: Liệt kê tất cả các Node trong cụm Kubernetes, hiển thị trạng thái (Ready/NotReady), vai trò (Master/Worker), và thông tin khác như phiên bản Kubernetes.
+- **Ví dụ đầu ra**:
+  ```
+  NAME       STATUS   ROLES    AGE   VERSION
+  node1      Ready    worker   10d   v1.28.0
+  node2      Ready    worker   10d   v1.28.0
+  ```
+
+### 2.2. Pod
+
+**Pod** là đơn vị nhỏ nhất trong Kubernetes, thường chứa một hoặc nhiều container chia sẻ tài nguyên như lưu trữ và mạng. Một Pod đại diện cho một phiên bản của ứng dụng đang chạy.
+
+**Lệnh liên quan**:
+```bash
+kubectl get pod
+```
+- **Mô tả**: Liệt kê tất cả các Pod trong namespace hiện tại, hiển thị trạng thái (Running, Pending, Failed), số lần khởi động lại, và thời gian tồn tại.
+- **Ví dụ đầu ra**:
+  ```
+  NAME                     READY   STATUS    RESTARTS   AGE
+  nginx-pod                1/1     Running   0          5m
+  ```
+
+```bash
+kubectl describe pod <pod-name>
+```
+- **Mô tả**: Cung cấp thông tin chi tiết về một Pod cụ thể, bao gồm trạng thái, sự kiện, và cấu hình.
+- **Ví dụ**:
+  ```bash
+  kubectl describe pod nginx-pod
+  ```
+
+```bash
+kubectl logs <pod-name>
+```
+- **Mô tả**: Hiển thị nhật ký (logs) của container trong Pod. Nếu Pod chứa nhiều container, cần chỉ định container cụ thể bằng tùy chọn `--container`.
+- **Ví dụ**:
+  ```bash
+  kubectl logs nginx-pod
+  ```
+
+```bash
+kubectl exec -it <pod-name> -- /bin/bash
+```
+- **Mô tả**: Mở một phiên giao tiếp tương tác (interactive terminal) với container trong Pod, cho phép chạy các lệnh bên trong container.
+- **Ví dụ**:
+  ```bash
+  kubectl exec -it nginx-pod -- /bin/bash
+  ```
+- **Lưu ý**: Nếu container sử dụng shell khác (như `/bin/sh`), thay `/bin/bash` bằng shell tương ứng.
+
+### 2.3. Service
+
+**Service** là một đối tượng Kubernetes định nghĩa cách các Pod được truy cập, thường thông qua một địa chỉ IP hoặc tên DNS nội bộ. Service giúp cân bằng tải (load balancing) và cung cấp khả năng khám phá dịch vụ (service discovery).
+
+**Lệnh liên quan**:
+```bash
+kubectl get services
+```
+- **Mô tả**: Liệt kê tất cả các Service trong namespace hiện tại, hiển thị loại Service (ClusterIP, NodePort, LoadBalancer), địa chỉ IP, và cổng.
+- **Ví dụ đầu ra**:
+  ```
+  NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+  nginx-svc    ClusterIP   10.96.0.10   <none>        80/TCP    2d
+  ```
+
+### 2.4. Deployment
+
+**Deployment** là một bản thiết kế (blueprint) để quản lý các Pod và **ReplicaSet**. Deployment đảm bảo rằng một số lượng Pod nhất định luôn chạy, tự động xử lý việc tạo, cập nhật, và xóa Pod khi cần.
+
+**Quan hệ**: Deployment → ReplicaSet → Pod → Container
+- **Deployment**: Quản lý ReplicaSet và định nghĩa trạng thái mong muốn của ứng dụng.
+- **ReplicaSet**: Đảm bảo số lượng Pod được chỉ định luôn chạy.
+- **Pod**: Chứa các container thực thi ứng dụng.
+- **Container**: Chứa ứng dụng thực tế.
+
+**Lệnh liên quan**:
+```bash
+kubectl get deployment
+```
+- **Mô tả**: Liệt kê tất cả các Deployment trong namespace hiện tại, hiển thị số lượng bản sao (replicas), trạng thái, và thời gian tồn tại.
+- **Ví dụ đầu ra**:
+  ```
+  NAME            READY   UP-TO-DATE   AVAILABLE   AGE
+  nginx-deploy    3/3     3            3           1h
+  ```
+
+```bash
+kubectl create deployment <name> --image=<image> [--dry-run]
+```
+- **Mô tả**: Tạo một Deployment mới với tên và hình ảnh container được chỉ định. Tùy chọn `--dry-run` cho phép kiểm tra cấu hình mà không thực sự tạo.
+- **Ví dụ**:
+  ```bash
+  kubectl create deployment nginx-deploy --image=nginx
+  ```
+  - Tạo một Deployment có tên `nginx-deploy` sử dụng hình ảnh `nginx` từ Docker Hub.
+
+```bash
+kubectl edit deployment <name>
+```
+- **Mô tả**: Mở trình chỉnh sửa (ví dụ: `vi`) để sửa đổi cấu hình của Deployment trực tiếp. Điều này hữu ích để thay đổi số lượng bản sao, hình ảnh container, hoặc các thông số khác.
+- **Ví dụ**:
+  ```bash
+  kubectl edit deployment nginx-deploy
+  ```
+
+```bash
+kubectl delete deployment <name>
+```
+- **Mô tả**: Xóa một Deployment và các tài nguyên liên quan (ReplicaSet và Pod).
+- **Ví dụ**:
+  ```bash
+  kubectl delete deployment nginx-deploy
+  ```
+
+### 2.5. ReplicaSet
+
+**ReplicaSet** đảm bảo rằng một số lượng Pod nhất định luôn chạy tại mọi thời điểm. Thông thường, ReplicaSet được quản lý tự động bởi Deployment, nên bạn hiếm khi cần tạo hoặc xóa ReplicaSet trực tiếp.
+
+**Lệnh liên quan**:
+```bash
+kubectl get replicaset
+```
+- **Mô tả**: Liệt kê tất cả các ReplicaSet trong namespace hiện tại, hiển thị số lượng bản sao mong muốn, hiện tại, và trạng thái.
+- **Ví dụ đầu ra**:
+  ```
+  NAME                     DESIRED   CURRENT   READY   AGE
+  nginx-deploy-abc123      3         3         3       1h
+  ```
+
+**Lưu ý**: Không cần tạo hoặc xóa ReplicaSet thủ công vì chúng được quản lý bởi Deployment.
+
+### 2.6. Áp dụng cấu hình từ tệp YAML
+
+Kubernetes hỗ trợ quản lý tài nguyên thông qua các tệp cấu hình YAML hoặc JSON. Điều này cho phép định nghĩa trạng thái mong muốn của các đối tượng như Deployment, Service, hoặc Pod.
+
+**Lệnh liên quan**:
+```bash
+kubectl apply -f <config-file.yaml>
+```
+- **Mô tả**: Áp dụng cấu hình từ tệp YAML hoặc JSON, tạo hoặc cập nhật các tài nguyên tương ứng.
+- **Ví dụ**:
+  ```bash
+  kubectl apply -f nginx-deployment.yaml
+  ```
+- **Ví dụ nội dung tệp `nginx-deployment.yaml`**:
+  ```yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: nginx-deploy
+  spec:
+    replicas: 3
+    selector:
+      matchLabels:
+        app: nginx
+    template:
+      metadata:
+        labels:
+          app: nginx
+      spec:
+        containers:
+        - name: nginx
+          image: nginx
+          ports:
+          - containerPort: 80
+  ```
+
+---
+
+## 3. Quy trình làm việc cơ bản
+
+Dưới đây là quy trình cơ bản để triển khai và quản lý một ứng dụng trong Kubernetes:
+1. **Tạo Deployment**:
+   ```bash
+   kubectl create deployment nginx-deploy --image=nginx
+   ```
+2. **Kiểm tra trạng thái Deployment**:
+   ```bash
+   kubectl get deployment
+   ```
+3. **Kiểm tra Pod**:
+   ```bash
+   kubectl get pod
+   ```
+4. **Kiểm tra nhật ký**:
+   ```bash
+   kubectl logs nginx-deploy-<pod-id>
+   ```
+5. **Truy cập Pod**:
+   ```bash
+   kubectl exec -it nginx-deploy-<pod-id> -- /bin/bash
+   ```
+6. **Chỉnh sửa Deployment** (ví dụ: thay đổi số lượng bản sao):
+   ```bash
+   kubectl edit deployment nginx-deploy
+   ```
+7. **Xóa Deployment**:
+   ```bash
+   kubectl delete deployment nginx-deploy
+   ```
+
+---
+
+## 4. Lưu ý quan trọng
+
+- **Namespace**: Các lệnh `kubectl` mặc định hoạt động trong namespace `default`. Để làm việc với namespace khác, sử dụng tùy chọn `-n <namespace>` (ví dụ: `kubectl get pod -n kube-system`).
+- **Khắc phục sự cố**: Sử dụng `kubectl describe` và `kubectl logs` để kiểm tra lỗi hoặc sự kiện bất thường.
+- **Tệp YAML**: Sử dụng `kubectl apply` với các tệp YAML để quản lý tài nguyên một cách nhất quán và có thể tái sử dụng.
+- **Tự động hóa**: Deployment tự động quản lý ReplicaSet và Pod, giúp giảm thiểu công việc thủ công.
