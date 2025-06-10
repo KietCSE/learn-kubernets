@@ -63,6 +63,8 @@ kubectl get pod -o wide
 kubectl describe pod <pod-name>
 kubectl logs <pod-name>
 kubectl exec -it <pod-name> -- /bin/bash
+kubectl scale <resource> <resource-name> --replicas=<number>
+
 ```
 
 **Pod States**:
@@ -115,6 +117,9 @@ A **Deployment** is a Kubernetes controller that manages the desired state of Po
 - Uses selectors to identify managed Pods (distinct from Service selectors, which route traffic).
 - Supports rolling updates and rollbacks for application updates.
 
+**Rollback** 
+
+
 **Related Commands**:
 ```bash
 kubectl get deployment
@@ -122,6 +127,11 @@ kubectl describe deployment <deployment-name>
 kubectl get deployment <deployment-name> -o yaml
 kubectl rollout status deployment <deployment-name>
 kubectl rollout undo deployment <deployment-name>
+kubectl set image deployment/<tên-deployment> <tên-container>=<tên-image>:<tag>
+kubectl rollout undo deployment/<tên-deployment>                                  # rollback previous version 
+kubectl rollout history deployment/<tên-deployment>                               # history of all versions
+kubectl rollout undo deployment/<tên-deployment> --to-revision=2                  # rollback to version 2
+
 ```
 ---
 ### 2.5. ReplicaSet
@@ -227,7 +237,7 @@ helm rollback <release-name> <revision>
 
 ### 2.9. Volume
 
-A **Volume** in Kubernetes provides persistent storage for Pods. Volumes can be mounted into a container’s filesystem and may include ConfigMaps or Secrets.
+A **Volume** in Kubernetes provides persistent storage for Pods. Volumes can be mounted into a container’s filesystem and may include ConfigMaps or Secrets. Persistence volume has to detach from pod and node, it is belong to cluster. 
 
 #### Key Components:
 - **PersistentVolume (PV)**:  
@@ -257,6 +267,15 @@ A **Volume** in Kubernetes provides persistent storage for Pods. Volumes can be 
   - Kubernetes allows mounting **ConfigMaps** and **Secrets** as volumes inside containers.
   - This is commonly used for injecting configuration files, environment variables, or credentials.
 
+**Related Commands**:
+```bash
+kubectl get pv
+kubectl get pvc
+kubectl describe pvc <pvc-name>
+kubectl get storageclass
+
+```
+
 #### Volume Types (Overview)
 
 | Volume Type       | Description                                |
@@ -270,14 +289,67 @@ A **Volume** in Kubernetes provides persistent storage for Pods. Volumes can be 
 | `csi`             | Container Storage Interface (pluggable)    |
 
 
-**Related Commands**:
-```bash
-kubectl get pv
-kubectl get pvc
-kubectl describe pvc <pvc-name>
-kubectl get storageclass
+#### emptyDir 
+emptyDir là một loại volume được tạo ra khi một Pod được gán vào một Node. Thư mục trống (empty directory) này tồn tại trong suốt vòng đời của Pod. Khi Pod bị xóa (dù container bên trong bị restart), dữ liệu trong emptyDir sẽ biến mất.
+- If container restarts, emptyDir also remain 
+- You can not check emptyDir using command, you have to check in the yaml file
+**Hữu ích cho các trường hợp như:**
+- Cache tạm thời
+- Buffer dữ liệu
+- Dùng để chia sẻ dữ liệu giữa các containe
+**Disadvatage** 
+- Temporary storage 
+- Each pod will has a emptyDir so problem come with replica 
+
+#### hostPath 
+hostPath là volume trỏ tới một đường dẫn cụ thể trên Node (máy chủ vật lý hoặc ảo) mà Pod đang chạy. Dữ liệu lưu trên hostPath vẫn tồn tại ngay cả khi Pod bị xóa.
+
+**Disadvantage** 
+- Không portable: Không dùng tốt trong môi trường nhiều Node (cluster lớn).
+- Nguy cơ bảo mật cao: Container có thể truy cập vào file hệ thống host.
+
+#### CSI 
+CSI (Container Storage Interface) là mộft tiêu chuẩn mở giúp Kubernetes tích hợp với các hệ thống lưu trữ bên ngoài (external storage systems) một cách linh hoạt và mạnh mẽ hơn so với cơ chế volume plugin truyền thống. Cung cấp nhiều tính năng nâng cao hơn như snapshot, resize,... 
+
+#### How to declare a persistent volume 
 ```
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: <pv-name>  # Tên PV
+spec:
+  capacity:
+    storage: <size>  # Dung lượng (vd: 10Gi)
+  accessModes:       # Chế độ truy cập
+    - <access-mode>  # Ví dụ: ReadWriteOnce
+  persistentVolumeReclaimPolicy: <reclaim-policy>  # Retain/Delete/Recycle
+  storageClassName: <storage-class>  # Tên StorageClass (nếu có)
+  volumeMode: Filesystem  # Hoặc Block (tùy use case)
+  # Phần khai báo volume (nfs, hostPath, awsEBS, etc.)
+  <volume-type>:
+    <config-details>
+```
+**Explain**
+``accessModes``
+- ReadWriteOnce (RWO): Chỉ 1 node được ghi/đọc.
+- ReadOnlyMany (ROX): Nhiều node đọc.
+- ReadWriteMany (RWX): Nhiều node ghi/đọc (NFS, Ceph hỗ trợ).
+
+``persistentVolumeReclaimPolicy``
+- Retain: Giữ lại data sau khi PVC xóa (admin phải xóa thủ công).
+- Delete: Tự động xóa data (phụ thuộc vào storage backend).
+- Recycle (deprecated): Xóa data và chuẩn bị PV để tái sử dụng.
+
+``storageClassName``
+- Khớp với tên StorageClass nếu dùng dynamic provisioning.
+- Để trống nếu dùng static provisioning.
+
+``volumeMode``
+- Filesystem: Mount như thư mục (mặc định).
+- Block: Truy cập trực tiếp ở dạng block device (cho database).
+
 ---
+
 ### 2.10. StatefulSet
 
 A **StatefulSet** is a Kubernetes workload controller for stateful applications requiring stable identifiers, persistent storage, or specific startup ordering.
