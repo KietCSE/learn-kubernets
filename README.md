@@ -74,6 +74,9 @@ kubectl exec -it <pod-name> -- /bin/bash
 
 **Service** là một đối tượng Kubernetes định nghĩa cách các Pod được truy cập, thường thông qua một địa chỉ IP hoặc tên DNS nội bộ. Service giúp cân bằng tải (load balancing) và cung cấp khả năng khám phá dịch vụ (service discovery).
 
+Mỗi lần tạo một service thì kubernet sẽ tạo một endppoint 
+Service có ip riêng 
+
 **Lệnh liên quan**:
 ```bash
 kubectl get services
@@ -280,16 +283,59 @@ using URL to make diffirect app accessable -> can use many host instead
 kubectl get ingress -n kubernetes-dashboard
 kubectl describe ingress <name> -n <namespace>
 
-## Helm 
-clone common yaml configuration file 
-define template file with value yaml file 
-release management 
+## Helm
+clone common yaml configuration file
+define template file with value yaml file
+release management
+
+## Volume 
+persistent volume Là tài nguyên lưu trữ được quản lý bởi admin hoặc provisioned tự động.
+
+PersistentVolumeClaim Là một yêu cầu lưu trữ từ người dùng hoặc ứng dụng. Người dùng sẽ yêu cầu, sau đó PVC sẽ tìm PV phù hợp rồi thực hiện bind. Mục đích là tách biệt người dùng với hạ tầng lưu trữ, tại sử dụng lại các tài nguyên hiệu quả 
+Pod request volum through PVC -> PVC try to find PV 
+PVC phải chung namespace với pod 
+
+Volume sẽ được mount vào trong filesystem của container 
+Có thể mount configmap và secretkey như volume 
+
+StorageClass định nghĩa "cách" mà Kubernetes sẽ tạo ra một PersistentVolume (PV) một cách tự động, gọi là dynamic provisioning.
+
+## StatefullSet 
+StatefulSet trong Kubernetes là một loại workload controller đặc biệt dùng để chạy các ứng dụng có trạng thái (stateful applications), tức là ứng dụng cần lưu trữ dữ liệu lâu dài, định danh ổn định, hoặc thứ tự khởi chạy cụ thể.
+
+individual dns for each pod
+when pod restart -> IP change -> name and endpoint stay same 
+pod can retain state and role 
+
+kubernets sẽ tạo pvc cho từng pod 
+
+Tóm lại: Định danh Pod trong StatefulSet được tạo thế nào?
+Định danh	Cách tạo	Ví dụ
+Tên Pod	<StatefulSet name>-<số thứ tự>	web-0, mysql-1
+Hostname	Giống tên Pod	mysql-0
+DNS truy cập	<pod>.<svc>.<namespace>.svc.cluster.local	mysql-0.mysql.default.svc.cluster.local
+PVC riêng biệt	Tự động từ volumeClaimTemplates	data-mysql-0
+
+headless service giúp truy cập dns cố định 
 
 
 
-## 4. Lưu ý quan trọng
+## K8s service 
 
-- **Namespace**: Các lệnh `kubectl` mặc định hoạt động trong namespace `default`. Để làm việc với namespace khác, sử dụng tùy chọn `-n <namespace>` (ví dụ: `kubectl get pod -n kube-system`).
-- **Khắc phục sự cố**: Sử dụng `kubectl describe` và `kubectl logs` để kiểm tra lỗi hoặc sự kiện bất thường.
-- **Tệp YAML**: Sử dụng `kubectl apply` với các tệp YAML để quản lý tài nguyên một cách nhất quán và có thể tái sử dụng.
-- **Tự động hóa**: Deployment tự động quản lý ReplicaSet và Pod, giúp giảm thiểu công việc thủ công.
+ClusterIP service: 
+- default type 
+- ...
+
+Headless service 
+- Client want to communicate with specific pod directly, not randomly selected 
+- use in statefull application like database 
+
+NodePort 
+- Mở một port cho node để traffic bên ngoài có thể vào \
+
+LoadBalancer is an extension of nodeport 
+- cân bằng tải và chỉ sử dụng một IP tĩnh duy nhất 
+
+## Note: 
+virtual network in minikube, check ip through /etc/cni 
+using brigde network 
