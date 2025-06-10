@@ -1,341 +1,352 @@
 # Kubernetes: Basic Operations and Concepts
+## 1. Introduction
 
-## 1. Giới thiệu
-
-Kubernetes là một nền tảng mã nguồn mở để quản lý các ứng dụng được container hóa. Tài liệu này cung cấp hướng dẫn chi tiết về các khái niệm cơ bản như **Node**, **Pod**, **Service**, **Deployment**, và **ReplicaSet**, cùng với các lệnh `kubectl` phổ biến để quản lý chúng. Các lệnh được trình bày kèm ví dụ cụ thể và giải thích rõ ràng.
+Kubernetes is an open-source platform for managing containerized applications. This document provides detailed guidance on core concepts such as **Node**, **Pod**, **Service**, **Deployment**, and **ReplicaSet**, along with commonly used `kubectl` commands to manage them.
 
 ---
 
-## 2. Các khái niệm cơ bản trong Kubernetes
+## 2. Core Kubernetes Concepts
 
 ### 2.1. Node
 
-**Node** là một máy tính (máy vật lý hoặc máy ảo) trong cụm Kubernetes, chịu trách nhiệm chạy các ứng dụng được đóng gói trong container. Mỗi Node chứa các thành phần sau:
-- **Kubelet**: Tác nhân chạy trên mỗi Node, đảm bảo các container trong Pod được chạy đúng cách.
-- **Kube-proxy**: Quản lý các quy tắc mạng trên Node để kết nối các Pod với nhau và với bên ngoài.
-- **Container Runtime**: Phần mềm chạy container (ví dụ: Docker, containerd).
+A **Node** is a physical or virtual machine in a Kubernetes cluster responsible for running containerized applications. There are two types of Nodes:
+- **Master Node**: Runs the control plane components, such as API Server, Scheduler, and Controller Manager.
+- **Worker Node**: Runs user applications in Pods, managed by the following components:
 
-**Lệnh liên quan**:
+| Component          | Description                                                                 |
+|--------------------|-----------------------------------------------------------------------------|
+| **Kubelet**        | An agent running on each Node, ensuring containers in Pods operate correctly. |
+| **Kube-proxy**     | Manages network rules to connect Pods internally and externally.             |
+| **Container Runtime** | Software for running containers, e.g., containerd, CRI-O (Docker deprecated since Kubernetes 1.20). |
+
+> **Note**: Since Kubernetes 1.20, Docker is no longer the default container runtime. Common runtimes include **containerd** and **CRI-O**.
+
+**Related Commands**:
 ```bash
 kubectl get nodes
+kubectl describe node <node-name>
+kubectl cordon <node-name>
+kubectl drain <node-name>
 ```
-- **Mô tả**: Liệt kê tất cả các Node trong cụm Kubernetes, hiển thị trạng thái (Ready/NotReady), vai trò (Master/Worker), và thông tin khác như phiên bản Kubernetes.
-- **Ví dụ đầu ra**:
-  ```
-  NAME       STATUS   ROLES    AGE   VERSION
-  node1      Ready    worker   10d   v1.28.0
-  node2      Ready    worker   10d   v1.28.0
-  ```
-
+---
 ### 2.2. Pod
 
-**Pod** là đơn vị nhỏ nhất trong Kubernetes, thường chứa một hoặc nhiều container chia sẻ tài nguyên như lưu trữ và mạng. Một Pod đại diện cho một phiên bản của ứng dụng đang chạy.
+A **Pod** is the smallest unit in Kubernetes, typically containing one or more containers that share resources such as storage and networking. Each Pod represents a single instance of a running application and is usually managed by higher-level objects like Deployments, ReplicaSets, or StatefulSets to ensure auto-recovery, scaling, and more.
 
-**Lệnh liên quan**:
+**Related Commands**:
 ```bash
 kubectl get pod
-```
-- **Mô tả**: Liệt kê tất cả các Pod trong namespace hiện tại, hiển thị trạng thái (Running, Pending, Failed), số lần khởi động lại, và thời gian tồn tại.
-- **Ví dụ đầu ra**:
-  ```
-  NAME                     READY   STATUS    RESTARTS   AGE
-  nginx-pod                1/1     Running   0          5m
-  ```
-
-```bash
+kubectl get pod -o wide
 kubectl describe pod <pod-name>
-```
-- **Mô tả**: Cung cấp thông tin chi tiết về một Pod cụ thể, bao gồm trạng thái, sự kiện, và cấu hình.
-- **Ví dụ**:
-  ```bash
-  kubectl describe pod nginx-pod
-  ```
-
-```bash
 kubectl logs <pod-name>
-```
-- **Mô tả**: Hiển thị nhật ký (logs) của container trong Pod. Nếu Pod chứa nhiều container, cần chỉ định container cụ thể bằng tùy chọn `--container`.
-- **Ví dụ**:
-  ```bash
-  kubectl logs nginx-pod
-  ```
-
-```bash
 kubectl exec -it <pod-name> -- /bin/bash
 ```
-- **Mô tả**: Mở một phiên giao tiếp tương tác (interactive terminal) với container trong Pod, cho phép chạy các lệnh bên trong container.
-- **Ví dụ**:
-  ```bash
-  kubectl exec -it nginx-pod -- /bin/bash
-  ```
-- **Lưu ý**: Nếu container sử dụng shell khác (như `/bin/sh`), thay `/bin/bash` bằng shell tương ứng.
 
+**Pod States**:
+| State              | Description                                                                 |
+|--------------------|-----------------------------------------------------------------------------|
+| **Running**        | The Pod is running, and all containers are operating normally.               |
+| **Pending**        | The Pod is waiting to be scheduled or containers are not yet ready.          |
+| **Failed**         | The Pod has encountered an error, with one or more containers terminated with an error code. |
+| **CrashLoopBackOff** | A container in the Pod is repeatedly restarting due to an error.            |
+
+---
 ### 2.3. Service
 
-**Service** là một đối tượng Kubernetes định nghĩa cách các Pod được truy cập, thường thông qua một địa chỉ IP hoặc tên DNS nội bộ. Service giúp cân bằng tải (load balancing) và cung cấp khả năng khám phá dịch vụ (service discovery).
+A **Service** in Kubernetes defines how Pods are accessed, typically via a virtual IP address (ClusterIP) or an internal DNS name. It provides **load balancing** and **service discovery**, ensuring stable connectivity to Pods even as they are created, deleted, or rescheduled.
 
-Mỗi lần tạo một service thì kubernet sẽ tạo một endppoint 
-Service có ip riêng 
+When a Service is created, Kubernetes automatically generates an **Endpoints** object (or **EndpointSlice** starting from Kubernetes 1.21) to track the IP addresses and ports of Pods matching the Service's selector. If no Pods match the selector, the Endpoints object will be empty, and the Service cannot route traffic.
 
-**Lệnh liên quan**:
+
+**Service Port Configuration**:
+- **port**: The port the Service listens on within the cluster (e.g., 80).
+- **targetPort**: The port the Pod's container listens on (e.g., 8080). The Service proxies traffic from `port` to `targetPort` of matching Pods.
+
+**Note**: Service selectors differ from Deployment selectors, as Services route traffic to Pods, while Deployments manage Pod creation and scaling.
+
+**Service Types**:
+| Type            | Description                                                                 |
+|-----------------|-----------------------------------------------------------------------------|
+| **ClusterIP**   | Default type. Assigns a virtual IP accessible only within the cluster.       |
+| **NodePort**    | Exposes the Service on a specific port of each Node for external access.     |
+| **LoadBalancer**| Provides a public IP through a cloud provider's load balancer (e.g., AWS, GCP, Azure). |
+| **Headless**    | No ClusterIP (`clusterIP: None`). DNS returns the IPs of matching Pods directly. |
+
+**Related Commands**:
 ```bash
 kubectl get services
+kubectl get services --all-namespaces
+kubectl describe service <service-name>
+kubectl get endpoints <service-name>
 ```
-- **Mô tả**: Liệt kê tất cả các Service trong namespace hiện tại, hiển thị loại Service (ClusterIP, NodePort, LoadBalancer), địa chỉ IP, và cổng.
-- **Ví dụ đầu ra**:
-  ```
-  NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-  nginx-svc    ClusterIP   10.96.0.10   <none>        80/TCP    2d
-  ```
 
+**Default service** is kubernetes: It is the default service of the API server in the cluster. It allows pods to communicate further with the API server to control the cluster.
+
+---
 ### 2.4. Deployment
 
-**Deployment** là một bản thiết kế (blueprint) để quản lý các Pod và **ReplicaSet**. Deployment đảm bảo rằng một số lượng Pod nhất định luôn chạy, tự động xử lý việc tạo, cập nhật, và xóa Pod khi cần.
+A **Deployment** is a Kubernetes controller that manages the desired state of Pods, ensuring the specified number of Pod replicas are running, updated, or rolled back as needed. It uses a **ReplicaSet** to maintain the desired number of Pods.
 
-**Quan hệ**: Deployment → ReplicaSet → Pod → Container
-- **Deployment**: Quản lý ReplicaSet và định nghĩa trạng thái mong muốn của ứng dụng.
-- **ReplicaSet**: Đảm bảo số lượng Pod được chỉ định luôn chạy.
-- **Pod**: Chứa các container thực thi ứng dụng.
-- **Container**: Chứa ứng dụng thực tế.
+**Key Features**:
+- Manages Pod scaling and updates.
+- Uses selectors to identify managed Pods (distinct from Service selectors, which route traffic).
+- Supports rolling updates and rollbacks for application updates.
 
-**Lệnh liên quan**:
+**Related Commands**:
 ```bash
 kubectl get deployment
+kubectl describe deployment <deployment-name>
+kubectl get deployment <deployment-name> -o yaml
+kubectl rollout status deployment <deployment-name>
+kubectl rollout undo deployment <deployment-name>
 ```
-- **Mô tả**: Liệt kê tất cả các Deployment trong namespace hiện tại, hiển thị số lượng bản sao (replicas), trạng thái, và thời gian tồn tại.
-- **Ví dụ đầu ra**:
-  ```
-  NAME            READY   UP-TO-DATE   AVAILABLE   AGE
-  nginx-deploy    3/3     3            3           1h
-  ```
-
-```bash
-kubectl create deployment <name> --image=<image> [--dry-run]
-```
-- **Mô tả**: Tạo một Deployment mới với tên và hình ảnh container được chỉ định. Tùy chọn `--dry-run` cho phép kiểm tra cấu hình mà không thực sự tạo.
-- **Ví dụ**:
-  ```bash
-  kubectl create deployment nginx-deploy --image=nginx
-  ```
-  - Tạo một Deployment có tên `nginx-deploy` sử dụng hình ảnh `nginx` từ Docker Hub.
-
-```bash
-kubectl edit deployment <name>
-```
-- **Mô tả**: Mở trình chỉnh sửa (ví dụ: `vi`) để sửa đổi cấu hình của Deployment trực tiếp. Điều này hữu ích để thay đổi số lượng bản sao, hình ảnh container, hoặc các thông số khác.
-- **Ví dụ**:
-  ```bash
-  kubectl edit deployment nginx-deploy
-  ```
-
-```bash
-kubectl delete deployment <name>
-```
-- **Mô tả**: Xóa một Deployment và các tài nguyên liên quan (ReplicaSet và Pod).
-- **Ví dụ**:
-  ```bash
-  kubectl delete deployment nginx-deploy
-  ```
-
+---
 ### 2.5. ReplicaSet
 
-**ReplicaSet** đảm bảo rằng một số lượng Pod nhất định luôn chạy tại mọi thời điểm. Thông thường, ReplicaSet được quản lý tự động bởi Deployment, nên bạn hiếm khi cần tạo hoặc xóa ReplicaSet trực tiếp.
+A **ReplicaSet** ensures a specified number of Pod replicas are running at all times. It is typically managed by a Deployment to handle scaling and updates but can be used independently.
 
-**Lệnh liên quan**:
+**Key Features**:
+- Maintains the desired number of Pods based on a selector.
+- Automatically replaces failed or deleted Pods.
+
+**Related Commands**:
 ```bash
 kubectl get replicaset
+kubectl describe replicaset <replicaset-name>
+kubectl scale replicaset <replicaset-name> --replicas=<number>
 ```
-- **Mô tả**: Liệt kê tất cả các ReplicaSet trong namespace hiện tại, hiển thị số lượng bản sao mong muốn, hiện tại, và trạng thái.
-- **Ví dụ đầu ra**:
-  ```
-  NAME                     DESIRED   CURRENT   READY   AGE
-  nginx-deploy-abc123      3         3         3       1h
-  ```
+---
 
-**Lưu ý**: Không cần tạo hoặc xóa ReplicaSet thủ công vì chúng được quản lý bởi Deployment.
+### 2.6. Namespace
 
-### 2.6. Áp dụng cấu hình từ tệp YAML
+A **Namespace** is a virtual cluster within a Kubernetes cluster, used to organize and isolate resources. It helps avoid naming conflicts, manage resources for different teams or environments, and control access.
 
-Kubernetes hỗ trợ quản lý tài nguyên thông qua các tệp cấu hình YAML hoặc JSON. Điều này cho phép định nghĩa trạng thái mong muốn của các đối tượng như Deployment, Service, hoặc Pod.
+**Use Cases**:
+- Avoid naming conflicts between teams or applications.
+- Group resources for management.
+- Separate environments (e.g., dev, staging, production).
+- Limit resource access per team.
+- Share resources across environments.
 
-**Lệnh liên quan**:
+**Note**:
+- Some resources (e.g., Nodes, PersistentVolumes) are global and not tied to a namespace.
+- Without specifying a namespace, the `default` namespace is used.
+- Pods in a namespace can run on multiple Nodes.
+- Kubernetes includes three system namespaces: `default`, `kube-system`, and `kube-public`.
+- Each pod with create two container: main for running and pause for kêp track namespace 
+- Một pod có thể có nhiều hơn container nếu dùng theo 
++ Sidecar container Ví dụ: chạy một container ứng dụng + một container Fluentd để đẩy log lên server.
++ Init container Các container khởi tạo chạy trước khi container chính bắt đầu (ví dụ: tải dữ liệu, thiết lập config...).
++ Ambassador / Adapter container Đóng vai trò như cổng giao tiếp hoặc chuyển đổi giao thức.
+
+**Related Commands**:
 ```bash
-kubectl apply -f <config-file.yaml>
+kubectl get namespace
+kubectl create namespace <namespace-name>
+kubectl get pod --namespace <namespace-name>
+kubectl describe namespace <namespace-name>
 ```
-- **Mô tả**: Áp dụng cấu hình từ tệp YAML hoặc JSON, tạo hoặc cập nhật các tài nguyên tương ứng.
-- **Ví dụ**:
-  ```bash
-  kubectl apply -f nginx-deployment.yaml
-  ```
-- **Ví dụ nội dung tệp `nginx-deployment.yaml`**:
-  ```yaml
-  apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: nginx-deploy
-  spec:
-    replicas: 3
-    selector:
-      matchLabels:
-        app: nginx
-    template:
-      metadata:
-        labels:
-          app: nginx
-      spec:
-        containers:
-        - name: nginx
-          image: nginx
-          ports:
-          - containerPort: 80
-  ```
+---
+
+### 2.7. Ingress
+
+An **Ingress** is a Kubernetes resource used to manage external HTTP/HTTPS traffic entering the cluster. It acts as a **reverse proxy**, routing requests to the appropriate Service based on the **hostname** or **URL path** — effectively replacing the need to manually install and configure NGINX.
+
+### Why Use Ingress?
+
+Without Ingress, exposing a Service externally requires:
+- **NodePort**: Limited to port range `30000–32767`, not user-friendly or scalable.
+- **LoadBalancer**: Each Service requires a dedicated load balancer → **high resource usage, costly (especially on cloud platforms)**.
+
+**Ingress allows multiple routes (hostnames/paths) to be managed via a single IP or LoadBalancer**, improving efficiency and scalability.
+
+### Advantages of Using NGINX Ingress Controller
+
+When you deploy the **NGINX Ingress Controller**, you:
+- Don’t need to install NGINX manually.
+- Don’t need to write manual config files.
+- Kubernetes automatically manages the reverse proxy config based on Ingress rules.
+- Requests are automatically mapped → Ingress → Service → Pod.
+
+### Key Components
+- **Ingress Resource**: Declares routing rules for HTTP/HTTPS traffic.
+- **Ingress Controller**: The software (e.g., NGINX, Traefik, HAProxy) that enforces Ingress rules.
+- **Default Backend**: A Pod that handles unmatched requests (commonly returns 404).
+- **Multiple Hosts/Paths**: Allows routing traffic to different applications based on domain names or paths.
+
+### Related Commands
+
+```bash
+kubectl get ingress
+kubectl get ingress --namespace <namespace-name>
+kubectl describe ingress <ingress-name> --namespace <namespace-name>
+```
 
 ---
 
-## 3. Quy trình làm việc cơ bản
+### 2.8. Helm
 
-Dưới đây là quy trình cơ bản để triển khai và quản lý một ứng dụng trong Kubernetes:
-1. **Tạo Deployment**:
-   ```bash
-   kubectl create deployment nginx-deploy --image=nginx
-   ```
-2. **Kiểm tra trạng thái Deployment**:
-   ```bash
-   kubectl get deployment
-   ```
-3. **Kiểm tra Pod**:
-   ```bash
-   kubectl get pod
-   ```
-4. **Kiểm tra nhật ký**:
-   ```bash
-   kubectl logs nginx-deploy-<pod-id>
-   ```
-5. **Truy cập Pod**:
-   ```bash
-   kubectl exec -it nginx-deploy-<pod-id> -- /bin/bash
-   ```
-6. **Chỉnh sửa Deployment** (ví dụ: thay đổi số lượng bản sao):
-   ```bash
-   kubectl edit deployment nginx-deploy
-   ```
-7. **Xóa Deployment**:
-   ```bash
-   kubectl delete deployment nginx-deploy
-   ```
+**Helm** is a package manager for Kubernetes, simplifying application deployment and management through reusable templates.
+
+**Key Features**:
+- Clones common YAML configurations.
+- Defines templates with customizable values in `values.yaml`.
+- Manages releases for versioned deployments and rollbacks.
+
+**Related Commands**:
+```bash
+helm install <release-name> <chart-name>
+helm upgrade <release-name> <chart-name>
+helm list
+helm rollback <release-name> <revision>
+```
+---
+
+### 2.9. Volume
+
+A **Volume** in Kubernetes provides persistent storage for Pods. Volumes can be mounted into a container’s filesystem and may include ConfigMaps or Secrets.
+
+#### Key Components:
+- **PersistentVolume (PV)**:  
+  A cluster-wide storage resource managed by a cluster administrator or dynamically provisioned using a `StorageClass`.  
+  - PVs represent real physical storage (e.g., disk on a node, NFS share, cloud disk).
+  - PVs are created independently of the Pod lifecycle, allowing persistent data across Pod restarts.
+
+- **PersistentVolumeClaim (PVC)**:  
+  A request for storage from a user or application.  
+  - A PVC specifies size, access modes, and optionally a `StorageClass`.
+  - Kubernetes tries to bind the PVC to an appropriate PV.
+  - **PVC and the Pod using it must reside in the same namespace.**
+  - This abstraction allows users to **request storage without needing to know implementation details**, promoting resource reuse and decoupling.
+
+- **Pod → PVC → PV Workflow**:
+  1. A Pod requests a volume using a PVC.
+  2. The PVC looks for a matching PV.
+  3. Once a suitable PV is found, the PVC is bound to it.
+  4. Kubernetes mounts the volume into the Pod's container filesystem.
+
+- **StorageClass**:  
+  Defines *how* PVs are dynamically provisioned (known as **dynamic provisioning**).  
+  - Specifies details like provisioner type (e.g., AWS EBS, GCE PD), volume binding mode, reclaim policy.
+  - Allows automatic creation of PVs when a PVC is made.
+
+- **Mounting ConfigMaps and Secrets**:
+  - Kubernetes allows mounting **ConfigMaps** and **Secrets** as volumes inside containers.
+  - This is commonly used for injecting configuration files, environment variables, or credentials.
+
+#### Volume Types (Overview)
+
+| Volume Type       | Description                                |
+|-------------------|--------------------------------------------|
+| `emptyDir`        | Temporary storage, deleted when Pod stops  |
+| `hostPath`        | Mounts a file/directory from host node     |
+| `configMap`       | Injects configuration files                |
+| `secret`          | Injects sensitive data like credentials    |
+| `persistentVolumeClaim` | Mounts a bound Persistent Volume     |
+| `nfs`             | Mounts a shared NFS volume                 |
+| `csi`             | Container Storage Interface (pluggable)    |
+
+
+**Related Commands**:
+```bash
+kubectl get pv
+kubectl get pvc
+kubectl describe pvc <pvc-name>
+kubectl get storageclass
+```
+---
+### 2.10. StatefulSet
+
+A **StatefulSet** is a Kubernetes workload controller for stateful applications requiring stable identifiers, persistent storage, or specific startup ordering.
+
+**Key Features**:
+- Assigns unique, stable DNS names and hostnames to Pods.
+- Maintains Pod identity (name and endpoint) even after restarts, despite IP changes.
+- Automatically creates a PVC for each Pod using `volumeClaimTemplates`.
+- Uses a **Headless Service** (`clusterIP: None`) for direct DNS-based access to individual Pods.
+
+**Pod Identity**:
+| Identifier         | Format                                    | Example                              |
+|--------------------|-------------------------------------------|--------------------------------------|
+| Pod Name           | `<StatefulSet-name>-<ordinal>`            | `web-0`, `mysql-1`                  |
+| Hostname           | Same as Pod name                          | `mysql-0`                           |
+| DNS Access         | `<pod>.<service>.<namespace>.svc.cluster.local` | `mysql-0.mysql.default.svc.cluster.local` |
+| PVC                | Created via `volumeClaimTemplates`         | `data-mysql-0`                      |
+
+**Related Commands**:
+```bash
+kubectl get statefulset
+kubectl describe statefulset <statefulset-name>
+kubectl scale statefulset <statefulset-name> --replicas=<number>
+```
+
+**Note**: Whenever pod restarts, IP will be changed but DNS will be retained.
 
 ---
 
+## 3. Writing YAML Files for Kubernetes
 
-Selector for deployment and for service is diff 
-Service for rute traffic 
-Deployment for management 
+Kubernetes resources are defined using **YAML** files, which specify the desired state of objects like Pods, Services, Deployments, and more. These files follow a structured format with key sections, including metadata, spec, and status. This guide explains how to write a Kubernetes YAML file, highlights the **status** section managed by Kubernetes, and addresses updates.
 
-port: 80 là cổng mà Service lắng nghe trong cluster.
-targetPort: 8080 là cổng mà các Pod đang chạy thật sẽ lắng nghe bên trong (trong container).
-Vì vậy, Service nhận request ở cổng 80, rồi chuyển tiếp (proxy) nó tới các Pod có label phù hợp, vào cổng 8080 của chúng.
+### 3.1 Structure of a Kubernetes YAML File
 
-containerPort = targetPort 
+A typical Kubernetes YAML file includes the following key components:
 
-Default service is kubernetes:
-- Là dịch vụ mặc định của API server trong cluster. Nó cho phép các pod giao tiếp với API server để điều khiển cluster.
+| Component       | Description                                                                 |
+|----------------|-----------------------------------------------------------------------------|
+| **apiVersion** | Specifies the Kubernetes API version for the resource (e.g., `v1`, `apps/v1`). |
+| **kind**       | Defines the type of resource (e.g., `Pod`, `Service`, `Deployment`).          |
+| **metadata**   | Contains resource metadata, such as `name`, `namespace`, and `labels`.       |
+| **spec**       | Defines the desired state of the resource (e.g., container images, ports, replicas). |
+| **status**     | Managed by Kubernetes, reflects the current state of the resource. Not user-editable. |
 
-kubectl describe service nginx-service
-kubectl get pod -o wide
--> check endpoint of service and IP of pod 
+### 3.2 Key Sections Explained
 
-Check status 
-kubectl get deployment nginx-deployment -o yaml
+#### 3.2.1 apiVersion and kind
+- **`apiVersion`**: Specifies the API group and version (e.g., `v1` for core resources, `apps/v1` for Deployments).
+- **`kind`**: Indicates the resource type, such as `Pod`, `Service`, or `Deployment`.
 
-Mỗi pod sẽ tạo 2 container: 1 cái main và 1 cái pause để giữ namespace 
-Một pod có thể có nhiều hơn container nếu dùng theo 
-- Sidecar container Ví dụ: chạy một container ứng dụng + một container Fluentd để đẩy log lên server.
-- Init container Các container khởi tạo chạy trước khi container chính bắt đầu (ví dụ: tải dữ liệu, thiết lập config...).
-- Ambassador / Adapter container Đóng vai trò như cổng giao tiếp hoặc chuyển đổi giao thức.
+#### 3.2.2 metadata
+- Includes:
+  - `name`: Unique name for the resource within its namespace.
+  - `namespace`: Namespace where the resource resides (defaults to `default` if omitted).
+  - `labels`: Key-value pairs for identifying and selecting resources.
+  - `annotations`: Additional non-identifying metadata for tools or users.
 
+#### 3.2.3 spec
+- Defines the desired configuration, varying by resource type. Examples:
+  - **Pod**: Specifies containers, images, ports, and volumes.
+  - **Service**: Defines selectors, ports, and type (e.g., ClusterIP, NodePort).
+  - **Deployment**: Includes replicas, selector, and Pod template.
 
-minikube service NAME 
+#### 3.2.4 status
+- Automatically generated and managed by Kubernetes.
+- Reflects the current state of the resource and automaticaly update, these resource such as:
+  - Pod phase (e.g., `Running`, `Pending`).
+  - Service ClusterIP and Endpoints.
+  - Deployment conditions (e.g., `Available`, `Progressing`).
+- **Note**: Users cannot edit the `status` section directly. Kubernetes updates it based on the cluster's state.
 
-## namespace 
+### 4. The `status` Section and Updates
 
-3 system namespace 
+- **Kubernetes-Managed `status`**:
+  - The `status` section is populated by Kubernetes to reflect the actual state of the resource.
+  - Example: For a Deployment, `status` includes `availableReplicas`, `readyReplicas`, and `conditions`.
+  - Users do not include `status` in YAML files when creating or updating resources, as it is overwritten by Kubernetes.
 
-advoice conflict with other teams 
-advoice conflict name of resosurce 
-group the resource for management 
-seperate many stage environment 
-access and limit the resource for each team  
-share resource between diffirent environment 
--> some resource lives globaly withoout namespace 
--> without providing namespace -> use default namespace 
+- **Handling Updates**:
+  - To update a resource, modify the `spec` section in the YAML file and apply it using:
+    ```bash
+    kubectl apply -f <filename>.yaml
+    ```
+  - Kubernetes reconciles the desired state (`spec`) with the current state (`status`).
+  - If the `status` does not match the `spec` (e.g., fewer replicas than desired), Kubernetes takes corrective actions (e.g., creating new Pods).
+  - Use `kubectl get <resource> -o yaml` to view the current `status`:
+    ```bash
+    kubectl get deployment nginx-deployment -o yaml
+    ```
 
-Một Namespace có thể có các Pod chạy trên nhiều Node khác nhau.
-
-
-## ingress 
-Ingress là cổng chính cho các HTTP request từ ngoài vào, như một web server reverse proxy.
-Ingress resource
-Ingress controller 
-Ingress = Cách chuẩn trong Kubernetes để thay thế việc tự cài NGINX thủ công.
-default backend -> create another pod with the same name to handle error rule request 
-using URL to make diffirect app accessable -> can use many host instead 
-
-kubectl get ingress -n kubernetes-dashboard
-kubectl describe ingress <name> -n <namespace>
-
-## Helm
-clone common yaml configuration file
-define template file with value yaml file
-release management
-
-## Volume 
-persistent volume Là tài nguyên lưu trữ được quản lý bởi admin hoặc provisioned tự động.
-
-PersistentVolumeClaim Là một yêu cầu lưu trữ từ người dùng hoặc ứng dụng. Người dùng sẽ yêu cầu, sau đó PVC sẽ tìm PV phù hợp rồi thực hiện bind. Mục đích là tách biệt người dùng với hạ tầng lưu trữ, tại sử dụng lại các tài nguyên hiệu quả 
-Pod request volum through PVC -> PVC try to find PV 
-PVC phải chung namespace với pod 
-
-Volume sẽ được mount vào trong filesystem của container 
-Có thể mount configmap và secretkey như volume 
-
-StorageClass định nghĩa "cách" mà Kubernetes sẽ tạo ra một PersistentVolume (PV) một cách tự động, gọi là dynamic provisioning.
-
-## StatefullSet 
-StatefulSet trong Kubernetes là một loại workload controller đặc biệt dùng để chạy các ứng dụng có trạng thái (stateful applications), tức là ứng dụng cần lưu trữ dữ liệu lâu dài, định danh ổn định, hoặc thứ tự khởi chạy cụ thể.
-
-individual dns for each pod
-when pod restart -> IP change -> name and endpoint stay same 
-pod can retain state and role 
-
-kubernets sẽ tạo pvc cho từng pod 
-
-Tóm lại: Định danh Pod trong StatefulSet được tạo thế nào?
-Định danh	Cách tạo	Ví dụ
-Tên Pod	<StatefulSet name>-<số thứ tự>	web-0, mysql-1
-Hostname	Giống tên Pod	mysql-0
-DNS truy cập	<pod>.<svc>.<namespace>.svc.cluster.local	mysql-0.mysql.default.svc.cluster.local
-PVC riêng biệt	Tự động từ volumeClaimTemplates	data-mysql-0
-
-headless service giúp truy cập dns cố định 
-
-
-
-## K8s service 
-
-ClusterIP service: 
-- default type 
-- ...
-
-Headless service 
-- Client want to communicate with specific pod directly, not randomly selected 
-- use in statefull application like database 
-
-NodePort 
-- Mở một port cho node để traffic bên ngoài có thể vào \
-
-LoadBalancer is an extension of nodeport 
-- cân bằng tải và chỉ sử dụng một IP tĩnh duy nhất 
-
-## Note: 
-virtual network in minikube, check ip through /etc/cni 
-using brigde network 
+- **Common Update Scenarios**:
+  - **Scaling**: Update `replicas` in the `spec` and apply the YAML.
+  - **Image Update**: Change the container `image` in the `spec` for rolling updates.
+  - **Configuration Changes**: Modify `spec` fields like environment variables or ports.
