@@ -1,4 +1,27 @@
 # Kubernetes: Basic Operations and Concepts
+
+---
+
+## 📚 Table of Contents
+
+- [1. Introduction](#1-introduction)
+- [2. Core Kubernetes Concepts](#2-core-kubernetes-concepts)
+  - [2.1. Node](#21-node)
+  - [2.2. Pod](#22-pod)
+  - [2.3. Service](#23-service)
+  - [2.4. Deployment](#24-deployment)
+  - [2.5. ReplicaSet](#25-replicaset)
+  - [2.6. Namespace](#26-namespace)
+  - [2.7. Ingress](#27-ingress)
+  - [2.8. Helm](#28-helm)
+  - [2.9. Volume](#29-volume)
+  - [2.10. StatefulSet](#210-statefulset)
+- [3. Writing YAML Files for Kubernetes](#3-writing-yaml-files-for-kubernetes)
+  - [3.1. Structure of a Kubernetes YAML File](#31-structure-of-a-kubernetes-yaml-file)
+  - [3.2. Key Sections Explained](#32-key-sections-explained)
+
+---
+
 ## 1. Introduction
 
 Kubernetes is an open-source platform for managing containerized applications. This document provides detailed guidance on core concepts such as **Node**, **Pod**, **Service**, **Deployment**, and **ReplicaSet**, along with commonly used `kubectl` commands to manage them.
