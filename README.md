@@ -16,6 +16,7 @@
   - [2.8. Helm](#28-helm)
   - [2.9. Volume](#29-volume)
   - [2.10. StatefulSet](#210-statefulset)
+  - [2.11. Network](#211-network)
 - [3. Writing YAML Files for Kubernetes](#3-writing-yaml-files-for-kubernetes)
   - [3.1. Structure of a Kubernetes YAML File](#31-structure-of-a-kubernetes-yaml-file)
   - [3.2. Key Sections Explained](#32-key-sections-explained)
@@ -106,6 +107,11 @@ kubectl get endpoints <service-name>
 ```
 
 **Default service** is kubernetes: It is the default service of the API server in the cluster. It allows pods to communicate further with the API server to control the cluster.
+
+**Note**
+- ClusterIP is used for internal communication in node
+- NodePort is used for external communication but not effecient in many nodes
+- LoadBalancer is used for external communication and effecient for many nodes
 
 ---
 ### 2.4. Deployment
@@ -379,6 +385,20 @@ kubectl scale statefulset <statefulset-name> --replicas=<number>
 
 ---
 
+## 2.11 Network
+
+- When running a **Deployment**, Kubernetes automatically assigns an IP address to each Pod.
+- Kubernetes also automatically creates **environment variables inside the Pod** that store information about Services (including IP and port).
+- However, it is **not recommended to rely directly on Pod IPs or environment variables** for communication, since Pod IPs can change when Pods are restarted. Instead, use **Kubernetes internal DNS** for stable service discovery.
+
+**Communication**
+- Pods should **communicate with each other through Services**.
+- Each Service has an internal DNS address within the cluster, in the format: `<service-name>.<namespace>`.
+- Containers within the same Pod share the **same network namespace**, including IP and ports, so they can communicate with each other via `localhost:<port>`.
+
+
+---
+
 ## 3. Writing YAML Files for Kubernetes
 
 Kubernetes resources are defined using **YAML** files, which specify the desired state of objects like Pods, Services, Deployments, and more. These files follow a structured format with key sections, including metadata, spec, and status. This guide explains how to write a Kubernetes YAML file, highlights the **status** section managed by Kubernetes, and addresses updates.
@@ -398,8 +418,17 @@ A typical Kubernetes YAML file includes the following key components:
 ### 3.2 Key Sections Explained
 
 #### 3.2.1 apiVersion and kind
-- **`apiVersion`**: Specifies the API group and version (e.g., `v1` for core resources, `apps/v1` for Deployments).
-- **`kind`**: Indicates the resource type, such as `Pod`, `Service`, or `Deployment`.
+
+- **`apiVersion`**: Specifies the API group and version used by the resource. It helps identify the version of the Kubernetes API that the object is using. This is part of the versioning process in the Kubernetes API system:
+  - `v1` for core resources (e.g., `Pod`, `Service`, `ConfigMap`)
+  - `apps/v1` for resources like `Deployment`, `StatefulSet`, `DaemonSet`
+  - `batch/v1` for resources like `Job`, `CronJob`
+  - `networking.k8s.io/v1` for `Ingress`, `NetworkPolicy`
+  - `rbac.authorization.k8s.io/v1` for RBAC resources like `Role`, `ClusterRole`, `RoleBinding`
+
+- **`kind`**: Describes the type of Kubernetes object being defined.
+  - Examples: `Pod`, `Service`, `Deployment`, `Ingress`, `ConfigMap`, `Secret`, `Job`
+
 
 #### 3.2.2 metadata
 - Includes:
